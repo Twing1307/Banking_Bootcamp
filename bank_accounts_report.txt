@@ -1,0 +1,8 @@
+AccountID, Balance, Transactions
+Account1, 200.0€
+	Account created with initial balance: 0.0€
+	Deposited: 200.0€ | New balance: 200.0€
+
+Account2, 100.0€
+	Account created with initial balance: 100.0€
+

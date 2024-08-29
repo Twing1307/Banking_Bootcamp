@@ -1,9 +1,10 @@
 package Banking;
 
-import java.util.Scanner;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
-
+import java.util.Scanner;
 
 public class BankAccount {
 
@@ -14,9 +15,10 @@ public class BankAccount {
 	public BankAccount() {
 		this.balance = 0.0;
 		this.transactionHistory = new LinkedList<>();
+		this.transactionHistory.add("Account created with initial balance: 0.0€");
 	}
 
-	// Contructor with parameter to set initial balance
+	// Constructor with parameter to set initial balance
 	public BankAccount(double initialBalance) {
 		this.balance = initialBalance;
 		this.transactionHistory = new LinkedList<>();
@@ -27,19 +29,21 @@ public class BankAccount {
 	public void deposit(double amount) {
 		if (amount > 0) {
 			balance += amount;
+			transactionHistory.add("Deposited: " + amount + "€ | New balance: " + balance + "€");
 			System.out.println("Deposited: " + amount + "€");
 		} else {
 			System.out.println("Deposit amount must be positive (>0).");
 		}
 	}
 
-	// Method to Withdraw amount from the account
+	// Method to withdraw amount from the account
 	public void withdraw(double amount) {
 		if (amount > 0 && amount <= balance) {
 			balance -= amount;
+			transactionHistory.add("Withdrew: " + amount + "€ | New balance: " + balance + "€");
 			System.out.println("Withdrew: " + amount + "€");
 		} else {
-			System.out.println("Withdrawal amount must be posivite (>0)");
+			System.out.println("Withdrawal amount must be positive and less than or equal to balance.");
 		}
 	}
 
@@ -53,11 +57,12 @@ public class BankAccount {
 		if (amount > 0 && amount <= balance) {
 			this.withdraw(amount);
 			otherAccount.deposit(amount);
-			System.out.println("Transfered: " + amount + "€");
+			transactionHistory.add("Transferred: " + amount + "€ to another account | New balance: " + balance + "€");
+			System.out.println("Transferred: " + amount + "€");
 		} else if (amount > balance) {
 			System.out.println("Insufficient funds for transfer.");
 		} else {
-			System.out.println("Transfer amount must be positive (>0)");
+			System.out.println("Transfer amount must be positive (>0).");
 		}
 	}
 
@@ -69,7 +74,34 @@ public class BankAccount {
 		}
 	}
 
-	public static void main(String[] args) {
+	// Method to get the current balance
+	public double getBalance() {
+		return balance;
+	}
+
+	// Method to get the transaction history
+	public LinkedList<String> getTransactionHistory() {
+		return transactionHistory;
+	}
+
+	// Method to generate a report of all accounts
+	public static void generateReport(HashMap<String, BankAccount> accounts) throws IOException {
+		FileWriter writer = new FileWriter("bank_accounts_report.txt");
+		writer.write("AccountID, Balance, Transactions\n");
+		for (String accountId : accounts.keySet()) {
+			BankAccount account = accounts.get(accountId);
+			writer.write(accountId + ", " + account.getBalance() + "€\n");
+			for (String transaction : account.getTransactionHistory()) {
+				writer.write("\t" + transaction + "\n");
+			}
+			writer.write("\n");
+		}
+		writer.close();
+		System.out.println("Report generated: bank_accounts_report.txt");
+	}
+
+	public static void main(String[] args) throws IOException {
+
 		Scanner scanner = new Scanner(System.in);
 
 		// Create a HashMap to store multiple bank accounts with unique IDs
@@ -87,7 +119,8 @@ public class BankAccount {
 			System.out.println("3. Transfer");
 			System.out.println("4. Print Balance");
 			System.out.println("5. Print Transaction History");
-			System.out.println("6. Exit");
+			System.out.println("6. Generate Report (.txt file)");
+			System.out.println("7. Exit");
 			System.out.println("Choose an option:");
 
 			int choice = scanner.nextInt();
@@ -147,6 +180,9 @@ public class BankAccount {
 					}
 					break;
 				case 6:
+					BankAccount.generateReport(accounts);
+					break;
+				case 7:
 					running = false;
 					System.out.println("Exiting...");
 					break;
@@ -158,4 +194,3 @@ public class BankAccount {
 		scanner.close();
 	}
 }
-
