@@ -1,0 +1,9 @@
+AccountID, Balance, Transactions
+Martins, 4996334.0€
+	Account created with initial balance: 12000.0€
+	Deposited: 5000000.0€ | New balance: 5012000.0€
+	Withdrew: 12345.0€ | New balance: 4999655.0€
+	Transferred: 12345.0€ to another account | New balance: 4999655.0€
+	Withdrew: 3444.0€ | New balance: 4996211.0€
+	Deposited: 123.0€ | New balance: 4996334.0€
+

@@ -8,7 +8,8 @@ import java.util.Scanner;
 public class Main {
     private static User loggedInUser = null;
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
+        // Create the database and tables if they don't exist
         Database.createNewDatabase();
         Database.createTables();
 
@@ -68,7 +69,11 @@ public class Main {
                         printTransactionHistory(scanner);
                         break;
                     case 6:
-                        BankAccount.generateReport(loggedInUser.getAccounts());
+                        try {
+                            BankAccount.generateReport(loggedInUser.getAccounts());
+                        } catch (IOException e) {
+                            System.out.println("Error generating report: " + e.getMessage());
+                        }
                         break;
                     case 7:
                         logoutUser();
@@ -95,7 +100,13 @@ public class Main {
             pstmt.setString(1, username);
             pstmt.setString(2, password);
             pstmt.executeUpdate();
-            System.out.println("User registered successfully. Please login.");
+            System.out.println("User registered successfully. Creating a new bank account...");
+
+            // Automatically log in the new user
+            loggedInUser = new User(getUserId(username), username, password);
+
+            // Prompt to create a new account
+            createAccount(scanner);
         } catch (SQLException e) {
             System.out.println("Error: " + e.getMessage());
         }
@@ -116,7 +127,8 @@ public class Main {
             ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
-                loggedInUser = new User(username, password);
+                int userId = rs.getInt("id");
+                loggedInUser = new User(userId, username, password);
                 System.out.println("Login successful.");
             } else {
                 System.out.println("Incorrect username or password.");
@@ -132,60 +144,178 @@ public class Main {
     }
 
     private static void performDeposit(Scanner scanner) {
-        System.out.println("Enter account ID for deposit: ");
-        String accountId = scanner.next();
+        System.out.println("Enter account name for deposit: ");
+        String accountName = scanner.next();
         System.out.println("Enter deposit amount: ");
         double depositAmount = scanner.nextDouble();
-        if (loggedInUser.getAccounts().containsKey(accountId)) {
-            loggedInUser.getAccount(accountId).deposit(depositAmount);
+        confirmWithPassword(scanner);
+
+        if (loggedInUser.getAccounts().containsKey(accountName)) {
+            BankAccount account = loggedInUser.getAccount(accountName);
+            account.deposit(depositAmount);
+            updateAccountBalanceInDatabase(accountName, account.getBalance());
         } else {
-            System.out.println("Account ID not found.");
+            System.out.println("Account name not found.");
         }
     }
 
     private static void performWithdrawal(Scanner scanner) {
-        System.out.println("Enter account ID for withdrawal: ");
-        String accountId = scanner.next();
+        System.out.println("Enter account name for withdrawal: ");
+        String accountName = scanner.next();
         System.out.println("Enter withdrawal amount: ");
         double withdrawAmount = scanner.nextDouble();
-        if (loggedInUser.getAccounts().containsKey(accountId)) {
-            loggedInUser.getAccount(accountId).withdraw(withdrawAmount);
+        confirmWithPassword(scanner);
+
+        if (loggedInUser.getAccounts().containsKey(accountName)) {
+            BankAccount account = loggedInUser.getAccount(accountName);
+            account.withdraw(withdrawAmount);
+            updateAccountBalanceInDatabase(accountName, account.getBalance());
         } else {
-            System.out.println("Account ID not found.");
+            System.out.println("Account name not found.");
         }
     }
 
     private static void performTransfer(Scanner scanner) {
-        System.out.println("Enter account ID to transfer from: ");
-        String fromAccountId = scanner.next();
-        System.out.println("Enter account ID to transfer to: ");
-        String toAccountId = scanner.next();
+        System.out.println("Enter account name to transfer from: ");
+        String fromAccountName = scanner.next();
+        System.out.println("Enter recipient's username: ");
+        String recipientUsername = scanner.next();
+        System.out.println("Enter recipient's account name: ");
+        String toAccountName = scanner.next();
         System.out.println("Enter transfer amount: ");
         double transferAmount = scanner.nextDouble();
-        if (loggedInUser.getAccounts().containsKey(fromAccountId) && loggedInUser.getAccounts().containsKey(toAccountId)) {
-            loggedInUser.getAccount(fromAccountId).transfer(loggedInUser.getAccount(toAccountId), transferAmount);
-        } else {
-            System.out.println("One or both account IDs not found.");
+        confirmWithPassword(scanner);
+
+        // Check if the logged-in user has the "from" account
+        if (!loggedInUser.getAccounts().containsKey(fromAccountName)) {
+            System.out.println("Source account not found.");
+            return;
+        }
+
+        BankAccount fromAccount = loggedInUser.getAccount(fromAccountName);
+
+        // Fetch recipient's account from the database
+        BankAccount toAccount = fetchAccountFromDatabase(recipientUsername, toAccountName);
+
+        // Check if the recipient account was found
+        if (toAccount == null) {
+            System.out.println("Recipient account not found.");
+            return;
+        }
+
+        // Proceed with the transfer
+        fromAccount.transfer(toAccount, transferAmount);
+        updateAccountBalanceInDatabase(fromAccountName, fromAccount.getBalance());
+        updateAccountBalanceInDatabase(recipientUsername, toAccountName, toAccount.getBalance());
+        System.out.println("Transfer completed successfully.");
+    }
+
+    // Helper method to fetch an account from the database by username and account name
+    private static BankAccount fetchAccountFromDatabase(String username, String accountName) {
+        String sql = "SELECT a.balance FROM accounts a JOIN users u ON a.user_id = u.id WHERE u.username = ? AND a.account_name = ?";
+
+        try (Connection conn = Database.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            pstmt.setString(2, accountName);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                double balance = rs.getDouble("balance");
+                return new BankAccount(balance);
+            } else {
+                return null; // Account not found
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching account: " + e.getMessage());
+            return null;
         }
     }
 
+    // Update database with specific account balance change for cross-user accounts
+    private static void updateAccountBalanceInDatabase(String username, String accountName, double newBalance) {
+        String sql = "UPDATE accounts SET balance = ? WHERE account_name = ? AND user_id = (SELECT id FROM users WHERE username = ?)";
+
+        try (Connection conn = Database.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, newBalance);
+            pstmt.setString(2, accountName);
+            pstmt.setString(3, username);
+            pstmt.executeUpdate();
+            System.out.println("Account balance updated in database.");
+        } catch (SQLException e) {
+            System.out.println("Error updating account balance: " + e.getMessage());
+        }
+    }
+
+
     private static void printBalance(Scanner scanner) {
-        System.out.println("Enter account ID to print balance: ");
-        String accountId = scanner.next();
-        if (loggedInUser.getAccounts().containsKey(accountId)) {
-            loggedInUser.getAccount(accountId).printBalance();
+        System.out.println("Enter account name to print balance: ");
+        String accountName = scanner.next();
+        confirmWithPassword(scanner);
+        if (loggedInUser.getAccounts().containsKey(accountName)) {
+            loggedInUser.getAccount(accountName).printBalance();
         } else {
-            System.out.println("Account ID not found.");
+            System.out.println("Account name not found.");
         }
     }
 
     private static void printTransactionHistory(Scanner scanner) {
-        System.out.println("Enter account ID to print transaction history: ");
-        String accountId = scanner.next();
-        if (loggedInUser.getAccounts().containsKey(accountId)) {
-            loggedInUser.getAccount(accountId).printTransactionHistory();
+        System.out.println("Enter account name to print transaction history: ");
+        String accountName = scanner.next();
+        confirmWithPassword(scanner);
+        if (loggedInUser.getAccounts().containsKey(accountName)) {
+            loggedInUser.getAccount(accountName).printTransactionHistory();
         } else {
-            System.out.println("Account ID not found.");
+            System.out.println("Account name not found.");
+        }
+    }
+
+    private static void updateAccountBalanceInDatabase(String accountName, double newBalance) {
+        String sql = "UPDATE accounts SET balance = ? WHERE account_name = ? AND user_id = ?";
+
+        try (Connection conn = Database.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setDouble(1, newBalance);
+            pstmt.setString(2, accountName);
+            pstmt.setInt(3, loggedInUser.getId());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Error updating account balance: " + e.getMessage());
+        }
+    }
+
+    // New method to create a bank account for the user
+    private static void createAccount(Scanner scanner) {
+        System.out.println("Enter a name for the new account: ");
+        String accountName = scanner.next();
+        System.out.println("Enter initial balance for the new account: ");
+        double initialBalance = scanner.nextDouble();
+        loggedInUser.createAccount(accountName, initialBalance);  // Calls the method in User class to create a new account
+    }
+
+    // Helper to confirm actions with a password
+    private static void confirmWithPassword(Scanner scanner) {
+        System.out.println("Please enter your password for confirmation: ");
+        String password = scanner.next();
+        if (!loggedInUser.checkPassword(password)) {
+            System.out.println("Incorrect password. Action cancelled.");
+            System.exit(0);  // Exit if the password confirmation fails
+        }
+    }
+
+    // Helper to retrieve user ID by username
+    private static int getUserId(String username) throws SQLException {
+        String sql = "SELECT id FROM users WHERE username = ?";
+        try (Connection conn = Database.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("id");
+            } else {
+                throw new SQLException("User ID not found.");
+            }
         }
     }
 }

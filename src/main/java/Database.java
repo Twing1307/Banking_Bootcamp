@@ -28,7 +28,6 @@ public class Database {
     }
 
     public static void createTables() {
-        // SQL to create the users table
         String userTable = "CREATE TABLE IF NOT EXISTS users (\n"
                 + "    id integer PRIMARY KEY,\n"
                 + "    username text NOT NULL UNIQUE,\n"
@@ -38,6 +37,7 @@ public class Database {
         String accountTable = "CREATE TABLE IF NOT EXISTS accounts (\n"
                 + "    account_id integer PRIMARY KEY AUTOINCREMENT,\n"
                 + "    user_id integer NOT NULL,\n"
+                + "    account_name text NOT NULL,\n"  // Added for account names
                 + "    balance real NOT NULL,\n"
                 + "    FOREIGN KEY(user_id) REFERENCES users(id)\n"
                 + ");";
