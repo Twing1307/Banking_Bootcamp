@@ -2,61 +2,46 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Scanner;
 
 public class BankAccount {
-
     private double balance;
     private LinkedList<String> transactionHistory;
 
-    // Default constructor
+    private static final String INITIAL_BALANCE_MESSAGE = "Account created with initial balance: %.2f€";
+
     public BankAccount() {
-        this.balance = 0.0;
-        this.transactionHistory = new LinkedList<>();
-        this.transactionHistory.add("Account created with initial balance: 0.0€");
+        this(0.0);
     }
 
-    // Constructor with parameter to set initial balance
     public BankAccount(double initialBalance) {
         this.balance = initialBalance;
         this.transactionHistory = new LinkedList<>();
-        this.transactionHistory.add("Account created with initial balance: " + initialBalance + "€");
+        logTransaction(String.format(INITIAL_BALANCE_MESSAGE, initialBalance));
     }
 
-    // Method to deposit some money into the account
     public void deposit(double amount) {
         if (amount > 0) {
             balance += amount;
-            transactionHistory.add("Deposited: " + amount + "€ | New balance: " + balance + "€");
-            System.out.println("Deposited: " + amount + "€");
+            logTransaction(String.format("Deposited: %.2f€ | New balance: %.2f€", amount, balance));
         } else {
             System.out.println("Deposit amount must be positive (>0).");
         }
     }
 
-    // Method to withdraw amount from the account
     public void withdraw(double amount) {
         if (amount > 0 && amount <= balance) {
             balance -= amount;
-            transactionHistory.add("Withdrew: " + amount + "€ | New balance: " + balance + "€");
-            System.out.println("Withdrew: " + amount + "€");
+            logTransaction(String.format("Withdrew: %.2f€ | New balance: %.2f€", amount, balance));
         } else {
             System.out.println("Withdrawal amount must be positive and less than or equal to balance.");
         }
     }
 
-    // Method to print balance
-    public void printBalance() {
-        System.out.println("Current balance: " + balance + "€");
-    }
-
-    // Method to transfer balance from one bank account to another
     public void transfer(BankAccount otherAccount, double amount) {
         if (amount > 0 && amount <= balance) {
             this.withdraw(amount);
             otherAccount.deposit(amount);
-            transactionHistory.add("Transferred: " + amount + "€ to another account | New balance: " + balance + "€");
-            System.out.println("Transferred: " + amount + "€");
+            logTransaction(String.format("Transferred: %.2f€ to another account | New balance: %.2f€", amount, balance));
         } else if (amount > balance) {
             System.out.println("Insufficient funds for transfer.");
         } else {
@@ -64,37 +49,41 @@ public class BankAccount {
         }
     }
 
-    // Method to print transaction history
-    public void printTransactionHistory() {
+    public void printBalance() {
+        System.out.println("Current balance: " + balance + "€");
+    }
+
+    public void displayTransactionHistory() {
         System.out.println("Transaction history: ");
         for (String transaction : transactionHistory) {
             System.out.println(transaction);
         }
     }
 
-    // Method to get the current balance
     public double getBalance() {
         return balance;
     }
 
-    // Method to get the transaction history
     public LinkedList<String> getTransactionHistory() {
         return transactionHistory;
     }
 
-    // Method to generate a report of all accounts
     public static void generateReport(HashMap<String, BankAccount> accounts) throws IOException {
-        FileWriter writer = new FileWriter("bank_accounts_report.txt");
-        writer.write("AccountID, Balance, Transactions\n");
-        for (String accountId : accounts.keySet()) {
-            BankAccount account = accounts.get(accountId);
-            writer.write(accountId + ", " + account.getBalance() + "€\n");
-            for (String transaction : account.getTransactionHistory()) {
-                writer.write("\t" + transaction + "\n");
+        try (FileWriter writer = new FileWriter("bank_accounts_report.txt")) {
+            writer.write("AccountID, Balance, Transactions\n");
+            for (String accountId : accounts.keySet()) {
+                BankAccount account = accounts.get(accountId);
+                writer.write(accountId + ", " + account.getBalance() + "€\n");
+                for (String transaction : account.getTransactionHistory()) {
+                    writer.write("\t" + transaction + "\n");
+                }
+                writer.write("\n");
             }
-            writer.write("\n");
         }
-        writer.close();
         System.out.println("Report generated: bank_accounts_report.txt");
+    }
+
+    private void logTransaction(String message) {
+        transactionHistory.add(message);
     }
 }

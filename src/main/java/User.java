@@ -5,7 +5,10 @@ import java.sql.SQLException;
 import java.util.HashMap;
 
 public class User {
-    private int id;  // Add a field to hold the user's ID from the database
+    private static final String LOAD_ACCOUNTS_SQL = "SELECT * FROM accounts WHERE user_id = ?";
+    private static final String SAVE_ACCOUNT_SQL = "INSERT INTO accounts(user_id, account_name, balance) VALUES(?, ?, ?)";
+
+    private int id;
     private String username;
     private String password;
     private HashMap<String, BankAccount> accounts;
@@ -15,7 +18,7 @@ public class User {
         this.username = username;
         this.password = password;
         this.accounts = new HashMap<>();
-        loadAccounts(); // Load accounts from the database
+        loadAccountsFromDatabase();
     }
 
     public int getId() {
@@ -32,7 +35,7 @@ public class User {
 
     public void addAccount(String accountName, BankAccount account) {
         accounts.put(accountName, account);
-        saveAccountToDatabase(accountName, account);  // Save account to the database
+        saveAccountToDatabase(accountName, account);
     }
 
     public BankAccount getAccount(String accountName) {
@@ -43,48 +46,46 @@ public class User {
         return accounts;
     }
 
-    private void loadAccounts() {
-        String sql = "SELECT * FROM accounts WHERE user_id = ?";
-
+    private void loadAccountsFromDatabase() {
         try (Connection conn = Database.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, this.id);
-            ResultSet rs = pstmt.executeQuery();
+             PreparedStatement pstmt = createPreparedStatement(conn, LOAD_ACCOUNTS_SQL, this.id);
+             ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
-                String accountName = rs.getString("account_name").trim(); // Ensure no trailing spaces
+                String accountName = rs.getString("account_name").trim();
                 double balance = rs.getDouble("balance");
                 BankAccount account = new BankAccount(balance);
-                accounts.put(accountName, account);  // Use the trimmed account name
+                accounts.put(accountName, account);
             }
-
-            // Debugging: Print loaded accounts to verify
-            System.out.println("Loaded accounts: " + accounts.keySet());
-
         } catch (SQLException e) {
             System.out.println("Error loading accounts: " + e.getMessage());
         }
     }
 
     private void saveAccountToDatabase(String accountName, BankAccount account) {
-        String sql = "INSERT INTO accounts(user_id, account_name, balance) VALUES(?, ?, ?)";
-
         try (Connection conn = Database.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, this.id);
-            pstmt.setString(2, accountName);
-            pstmt.setDouble(3, account.getBalance());
+             PreparedStatement pstmt = createPreparedStatement(conn, SAVE_ACCOUNT_SQL, accountName, account)) {
             pstmt.executeUpdate();
-            System.out.println("Account saved to database.");
         } catch (SQLException e) {
             System.out.println("Error saving account: " + e.getMessage());
         }
     }
 
-    // New method to create an account with a name
+    private PreparedStatement createPreparedStatement(Connection conn, String sql, int userId) throws SQLException {
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        pstmt.setInt(1, userId);
+        return pstmt;
+    }
+
+    private PreparedStatement createPreparedStatement(Connection conn, String sql, String accountName, BankAccount account) throws SQLException {
+        PreparedStatement pstmt = conn.prepareStatement(sql);
+        pstmt.setInt(1, this.id);
+        pstmt.setString(2, accountName);
+        pstmt.setDouble(3, account.getBalance());
+        return pstmt;
+    }
+
     public void createAccount(String accountName, double initialBalance) {
-        BankAccount newAccount = new BankAccount(initialBalance);
-        addAccount(accountName, newAccount);
-        System.out.println("New account created with name: " + accountName + " and balance: " + initialBalance + "€");
+        this.accounts.put(accountName, new BankAccount(initialBalance));
     }
 }

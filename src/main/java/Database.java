@@ -4,17 +4,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class Database {
-
     private static final String URL = "jdbc:sqlite:banking_system.db";
+    private static final String ERROR_MESSAGE = "Database error: ";
 
     public static Connection connect() {
-        Connection conn = null;
         try {
-            conn = DriverManager.getConnection(URL);
+            return DriverManager.getConnection(URL);
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            System.out.println(ERROR_MESSAGE + e.getMessage());
+            return null;
         }
-        return conn;
     }
 
     public static void createNewDatabase() {
@@ -23,32 +22,34 @@ public class Database {
                 System.out.println("A new database has been created.");
             }
         } catch (SQLException e) {
-            System.out.println(e.getMessage());
+            System.out.println(ERROR_MESSAGE + e.getMessage());
+        }
+    }
+
+    private static void executeStatement(String sql) {
+        try (Connection conn = connect();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            System.out.println(ERROR_MESSAGE + e.getMessage());
         }
     }
 
     public static void createTables() {
-        String userTable = "CREATE TABLE IF NOT EXISTS users (\n"
+        String createUserTableSQL = "CREATE TABLE IF NOT EXISTS users (\n"
                 + "    id integer PRIMARY KEY,\n"
                 + "    username text NOT NULL UNIQUE,\n"
                 + "    password text NOT NULL\n"
                 + ");";
-
-        String accountTable = "CREATE TABLE IF NOT EXISTS accounts (\n"
+        String createAccountTableSQL = "CREATE TABLE IF NOT EXISTS accounts (\n"
                 + "    account_id integer PRIMARY KEY AUTOINCREMENT,\n"
                 + "    user_id integer NOT NULL,\n"
-                + "    account_name text NOT NULL,\n"  // Added for account names
+                + "    account_name text NOT NULL,\n"
                 + "    balance real NOT NULL,\n"
                 + "    FOREIGN KEY(user_id) REFERENCES users(id)\n"
                 + ");";
-
-        try (Connection conn = connect();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(userTable);
-            stmt.execute(accountTable);
-            System.out.println("Tables created.");
-        } catch (SQLException e) {
-            System.out.println(e.getMessage());
-        }
+        executeStatement(createUserTableSQL);
+        executeStatement(createAccountTableSQL);
+        System.out.println("Tables created.");
     }
 }
