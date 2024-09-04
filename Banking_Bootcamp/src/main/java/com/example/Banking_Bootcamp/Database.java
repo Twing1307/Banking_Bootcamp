@@ -1,3 +1,5 @@
+package com.example.Banking_Bootcamp;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -27,9 +29,14 @@ public class Database {
     }
 
     private static void executeStatement(String sql) {
-        try (Connection conn = connect();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
+        try (Connection conn = connect()) {
+            if (conn == null) {
+                System.out.println("Connection failed. Cannot execute statement.");
+                return;
+            }
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+            }
         } catch (SQLException e) {
             System.out.println(ERROR_MESSAGE + e.getMessage());
         }

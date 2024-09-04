@@ -1,3 +1,5 @@
+package com.example.Banking_Bootcamp;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
@@ -87,3 +89,4 @@ public class BankAccount {
         transactionHistory.add(message);
     }
 }
+

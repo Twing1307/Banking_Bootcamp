@@ -1,3 +1,5 @@
+package com.example.Banking_Bootcamp;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -89,3 +91,4 @@ public class User {
         this.accounts.put(accountName, new BankAccount(initialBalance));
     }
 }
+

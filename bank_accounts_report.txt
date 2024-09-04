@@ -1,0 +1,4 @@
+AccountID, Balance, Transactions
+Maksim, 1000000.0€
+	Account created with initial balance: 1000000,00€
+
